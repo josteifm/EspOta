@@ -1,9 +1,20 @@
 from flask import Flask, request, send_from_directory, jsonify, Response
+from datetime import datetime
 import hashlib
 import os
 import glob
+import logging
 
 app = Flask(__name__)
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s",
+    handlers=[
+        logging.FileHandler("logs/{:%Y-%m-%d}.log".format(datetime.now())),
+        logging.StreamHandler()
+    ]
+)
 
 header_X_ESP8266_SKETCH_MD5 = 'X-ESP8266-SKETCH-MD5'
 header_X_ESP8266_STA_MAC = 'X-ESP8266-STA-MAC'
