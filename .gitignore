@@ -172,5 +172,6 @@ env/
 .history
 
 files
+logs/*
 
 # End of https://www.gitignore.io/api/flask,python,visualstudiocode
