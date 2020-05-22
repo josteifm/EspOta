@@ -1,9 +1,14 @@
 from flask import Flask, request, send_from_directory, jsonify, Response
+from werkzeug.utils import secure_filename
 import hashlib
 import os
 import glob
 
+UPLOAD_FOLDER = './files/'
+ALLOWED_EXTENSIONS = {'bin'}
+
 app = Flask(__name__)
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
 header_X_ESP8266_SKETCH_MD5 = 'X-ESP8266-SKETCH-MD5'
 header_X_ESP8266_STA_MAC = 'X-ESP8266-STA-MAC'
@@ -83,6 +88,56 @@ def send_file():
     resp = send_from_directory(file_path, fw_filename)
     resp.headers['X-MD5'] = fw_md5
     return resp
+
+def allowed_file(filename):
+    return '.' in filename and \
+           filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+@app.route('/upload', methods=['GET', 'POST'])
+def upload_file():
+    if request.method == 'POST':
+        # check if the post request has the file part
+        if 'file' not in request.files:
+            print('No file part')
+            return redirect(request.url)
+        file = request.files['file']
+        path = request.form['deviceid']
+        print("Path: {}".format(path))
+        # if user does not select file, browser also
+        # submit an empty part without filename
+        if path == '':
+            print('No path')
+            resp = Response("No path\n", status=200)
+            return resp
+
+        if file.filename == '':
+            print('No selected file')
+            resp = Response("No selected file\n", status=200)
+            return resp
+
+        if file and allowed_file(file.filename):
+            filename = secure_filename(file.filename)
+            path = os.path.join(app.config['UPLOAD_FOLDER'],path)
+
+            if not os.path.exists(path):
+                os.makedirs(path)
+
+            print(os.path.join(path, filename))
+            file.save(os.path.join(path, filename))
+            # return redirect(url_for('uploaded_file',
+            #                         filename=filename))
+            resp = Response("OK\n", status=200)
+            return resp
+    return '''
+    <!doctype html>
+    <title>Upload new File</title>
+    <h1>Upload new File</h1>
+    <form method="post" enctype="multipart/form-data">
+      <input type="input" name="deviceid"/><br/>
+      <input type="file" name="file"/><br/>
+      <input type="submit" value="Upload"/>
+    </form>
+    '''
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=54321)

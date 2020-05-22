@@ -171,4 +171,6 @@ env/
 # Ignore all local history of files
 .history
 
+files
+
 # End of https://www.gitignore.io/api/flask,python,visualstudiocode
