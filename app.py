@@ -72,10 +72,12 @@ def send_file():
 
     ESP8266_AP_MAC = request.headers.get(header_X_ESP8266_AP_MAC)
     ESP8266_STA_MAC = request.headers.get(header_X_ESP8266_STA_MAC)
+    logging.info("Request from device MAC AP: {} MAC STA: {}".format(ESP8266_AP_MAC,ESP8266_STA_MAC))
 
     file_path = basepath + ESP8266_AP_MAC.replace(":","")
     if not os.path.exists(file_path):
         resp = Response("No firmware for this chip {}\n".format(ESP8266_AP_MAC), status=404)
+        logging.info("No firmware for this chip MAC AP: {} MAC STA: {}".format(ESP8266_AP_MAC,ESP8266_STA_MAC))
         return resp
 
     files = list(filter(os.path.isfile, glob.glob(file_path + "/*")))
@@ -94,8 +96,10 @@ def send_file():
 
     if request.headers.get(header_X_ESP8266_SKETCH_MD5) == fw_md5:
         resp = Response("Firmware is newest version\n", status=304)
+        logging.info("Firmware is newest version for this chip MAC AP: {} MAC STA: {}".format(ESP8266_AP_MAC,ESP8266_STA_MAC))
         return resp
 
+    logging.info("Serving FW {} for this chip MAC AP: {} MAC STA: {}".format(fw_filename,ESP8266_AP_MAC,ESP8266_STA_MAC))
     resp = send_from_directory(file_path, fw_filename)
     resp.headers['X-MD5'] = fw_md5
     return resp
