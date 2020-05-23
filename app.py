@@ -9,7 +9,6 @@ import glob
 import logging
 import sys
 
-UPLOAD_FOLDER = './files/'
 ALLOWED_EXTENSIONS = {'bin'}
 
 app = Flask(__name__)
@@ -21,8 +20,6 @@ header_X_ESP8266_FREE_SPACE = 'X-ESP8266-FREE-SPACE'
 header_X_ESP8266_SKETCH_SIZE = 'X-ESP8266-SKETCH-SIZE'
 header_X_ESP8266_CHIP_SIZE = 'X-ESP8266-CHIP-SIZE'
 header_X_ESP8266_SDK_VERSION = 'X-ESP8266-SDK-VERSION'
-
-basepath = './files/'
 
 
 def environ_or_default(key, default):
@@ -115,7 +112,7 @@ def send_file():
     esp8266_sta_mac = request.headers.get(header_X_ESP8266_STA_MAC)
     logging.info("Request from device MAC AP: {} MAC STA: {}".format(esp8266_ap_mac, esp8266_sta_mac))
 
-    file_path = basepath + esp8266_ap_mac.replace(":", "")
+    file_path = app.config['UPLOAD_FOLDER'] + esp8266_ap_mac.replace(":", "")
     if not os.path.exists(file_path):
         resp = Response("No firmware for this chip {}\n".format(esp8266_ap_mac), status=404)
         logging.info("No firmware for this chip MAC AP: {} MAC STA: {}".format(esp8266_ap_mac, esp8266_sta_mac))
@@ -204,11 +201,13 @@ def main():
                         help='Set log level, default: \'info\'', **environ_or_default_bool('LOG_TO_FILE', True))
     parser.add_argument('-p', '--port', action='store', dest='port',
                         help='Set log level, default: \'info\'', **environ_or_default_int('PORT', 54321))
+    parser.add_argument('-u', '--upload path', action='store', dest='upload_path',
+                        help='Set upload path', **environ_or_default('UPLOAD_PATH', './files/'))
     options = parser.parse_args()
 
     log_setup(options.log_level, options.log_to_file)
 
-    app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+    app.config['UPLOAD_FOLDER'] = options.upload_path if options.upload_path.endswith('/') else options.upload_path + '/'
 
     logging.info("Starting OTA server on port: {0}".format(options.port))
     app.run(host='0.0.0.0', port=options.port)
