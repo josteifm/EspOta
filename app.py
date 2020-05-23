@@ -31,19 +31,22 @@ header_X_ESP8266_SDK_VERSION = 'X-ESP8266-SDK-VERSION'
 
 basepath = './files/'
 
-def check_header(name, value = False):
-    print(name + ' : ' + str(request.headers.get(name))) 
+
+def check_header(name, value=False):
+    print(name + ' : ' + str(request.headers.get(name)))
     if request.headers.get(name) == None:
         return False
-    
-    if(value and request.headers.get(name).lower() != value.lower()):
+
+    if (value and request.headers.get(name).lower() != value.lower()):
         return False
-    
+
     return True
+
 
 @app.route('/')
 def hello_world():
     return 'Hello, World!'
+
 
 @app.route('/headers')
 def headers():
@@ -53,6 +56,7 @@ def headers():
         str_headers += key + ' ' + value + '<br>'
     return str_headers
 
+
 def md5(fname):
     hash_md5 = hashlib.md5()
     with open(fname, "rb") as f:
@@ -60,24 +64,27 @@ def md5(fname):
             hash_md5.update(chunk)
     return hash_md5.hexdigest()
 
+
 @app.route('/file')
-def send_file():    
+def send_file():
     # if not check_header('User-Agent', 'ESP8266-http-Update'):
     #     resp = Response("only for ESP8266 updater!\n", status=403)
     #     return resp
-    
-    if not check_header(header_X_ESP8266_STA_MAC) or not check_header(header_X_ESP8266_AP_MAC) or not check_header(header_X_ESP8266_FREE_SPACE) or not check_header(header_X_ESP8266_SKETCH_SIZE) or not check_header(header_X_ESP8266_SKETCH_MD5) or not check_header(header_X_ESP8266_CHIP_SIZE) or not check_header(header_X_ESP8266_SDK_VERSION):
+
+    if not check_header(header_X_ESP8266_STA_MAC) or not check_header(header_X_ESP8266_AP_MAC) or not check_header(
+            header_X_ESP8266_FREE_SPACE) or not check_header(header_X_ESP8266_SKETCH_SIZE) or not check_header(
+            header_X_ESP8266_SKETCH_MD5) or not check_header(header_X_ESP8266_CHIP_SIZE) or not check_header(header_X_ESP8266_SDK_VERSION):
         resp = Response("only for ESP8266 updater! (header)\n", status=403)
         return resp
 
     ESP8266_AP_MAC = request.headers.get(header_X_ESP8266_AP_MAC)
     ESP8266_STA_MAC = request.headers.get(header_X_ESP8266_STA_MAC)
-    logging.info("Request from device MAC AP: {} MAC STA: {}".format(ESP8266_AP_MAC,ESP8266_STA_MAC))
+    logging.info("Request from device MAC AP: {} MAC STA: {}".format(ESP8266_AP_MAC, ESP8266_STA_MAC))
 
-    file_path = basepath + ESP8266_AP_MAC.replace(":","")
+    file_path = basepath + ESP8266_AP_MAC.replace(":", "")
     if not os.path.exists(file_path):
         resp = Response("No firmware for this chip {}\n".format(ESP8266_AP_MAC), status=404)
-        logging.info("No firmware for this chip MAC AP: {} MAC STA: {}".format(ESP8266_AP_MAC,ESP8266_STA_MAC))
+        logging.info("No firmware for this chip MAC AP: {} MAC STA: {}".format(ESP8266_AP_MAC, ESP8266_STA_MAC))
         return resp
 
     files = list(filter(os.path.isfile, glob.glob(file_path + "/*")))
@@ -86,7 +93,7 @@ def send_file():
     files.sort(key=os.path.getctime)
     print(files[0])
 
-    #get file for requesing chip
+    # get file for requesing chip
     fw_file = files[0]
     fw_md5 = md5(fw_file)
 
@@ -96,17 +103,19 @@ def send_file():
 
     if request.headers.get(header_X_ESP8266_SKETCH_MD5) == fw_md5:
         resp = Response("Firmware is newest version\n", status=304)
-        logging.info("Firmware is newest version for this chip MAC AP: {} MAC STA: {}".format(ESP8266_AP_MAC,ESP8266_STA_MAC))
+        logging.info("Firmware is newest version for this chip MAC AP: {} MAC STA: {}".format(ESP8266_AP_MAC, ESP8266_STA_MAC))
         return resp
 
-    logging.info("Serving FW {} for this chip MAC AP: {} MAC STA: {}".format(fw_filename,ESP8266_AP_MAC,ESP8266_STA_MAC))
+    logging.info("Serving FW {} for this chip MAC AP: {} MAC STA: {}".format(fw_filename, ESP8266_AP_MAC, ESP8266_STA_MAC))
     resp = send_from_directory(file_path, fw_filename)
     resp.headers['X-MD5'] = fw_md5
     return resp
 
+
 def allowed_file(filename):
     return '.' in filename and \
            filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
 
 @app.route('/upload', methods=['GET', 'POST'])
 def upload_file():
@@ -132,7 +141,7 @@ def upload_file():
 
         if file and allowed_file(file.filename):
             filename = secure_filename(file.filename)
-            path = os.path.join(app.config['UPLOAD_FOLDER'],path)
+            path = os.path.join(app.config['UPLOAD_FOLDER'], path)
 
             if not os.path.exists(path):
                 os.makedirs(path)
@@ -153,6 +162,7 @@ def upload_file():
       <input type="submit" value="Upload"/>
     </form>
     '''
+
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=54321)
