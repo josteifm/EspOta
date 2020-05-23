@@ -123,7 +123,7 @@ def upload_file():
         # check if the post request has the file part
         if 'file' not in request.files:
             print('No file part')
-            return redirect(request.url)
+            return Response("Bad Request\n", status=400)
         file = request.files['file']
         path = request.form['deviceid']
         print("Path: {}".format(path))
