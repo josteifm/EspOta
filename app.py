@@ -124,7 +124,7 @@ def send_file():
     files.sort(key=os.path.getctime)
     print(files[0])
 
-    # get file for requesing chip
+    # get file for requesting chip
     fw_file = files[0]
     fw_md5 = md5(fw_file)
 
