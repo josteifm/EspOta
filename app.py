@@ -32,12 +32,12 @@ header_X_ESP8266_SDK_VERSION = 'X-ESP8266-SDK-VERSION'
 basepath = './files/'
 
 
-def check_header(name, value=False):
+def check_header(name, value=None):
     print(name + ' : ' + str(request.headers.get(name)))
-    if request.headers.get(name) == None:
+    if request.headers.get(name) is None:
         return False
 
-    if (value and request.headers.get(name).lower() != value.lower()):
+    if value and request.headers.get(name).lower() != value.lower():
         return False
 
     return True
@@ -77,14 +77,14 @@ def send_file():
         resp = Response("only for ESP8266 updater! (header)\n", status=403)
         return resp
 
-    ESP8266_AP_MAC = request.headers.get(header_X_ESP8266_AP_MAC)
-    ESP8266_STA_MAC = request.headers.get(header_X_ESP8266_STA_MAC)
-    logging.info("Request from device MAC AP: {} MAC STA: {}".format(ESP8266_AP_MAC, ESP8266_STA_MAC))
+    esp8266_ap_mac = request.headers.get(header_X_ESP8266_AP_MAC)
+    esp8266_sta_mac = request.headers.get(header_X_ESP8266_STA_MAC)
+    logging.info("Request from device MAC AP: {} MAC STA: {}".format(esp8266_ap_mac, esp8266_sta_mac))
 
-    file_path = basepath + ESP8266_AP_MAC.replace(":", "")
+    file_path = basepath + esp8266_ap_mac.replace(":", "")
     if not os.path.exists(file_path):
-        resp = Response("No firmware for this chip {}\n".format(ESP8266_AP_MAC), status=404)
-        logging.info("No firmware for this chip MAC AP: {} MAC STA: {}".format(ESP8266_AP_MAC, ESP8266_STA_MAC))
+        resp = Response("No firmware for this chip {}\n".format(esp8266_ap_mac), status=404)
+        logging.info("No firmware for this chip MAC AP: {} MAC STA: {}".format(esp8266_ap_mac, esp8266_sta_mac))
         return resp
 
     files = list(filter(os.path.isfile, glob.glob(file_path + "/*")))
@@ -103,10 +103,10 @@ def send_file():
 
     if request.headers.get(header_X_ESP8266_SKETCH_MD5) == fw_md5:
         resp = Response("Firmware is newest version\n", status=304)
-        logging.info("Firmware is newest version for this chip MAC AP: {} MAC STA: {}".format(ESP8266_AP_MAC, ESP8266_STA_MAC))
+        logging.info("Firmware is newest version for this chip MAC AP: {} MAC STA: {}".format(esp8266_ap_mac, esp8266_sta_mac))
         return resp
 
-    logging.info("Serving FW {} for this chip MAC AP: {} MAC STA: {}".format(fw_filename, ESP8266_AP_MAC, ESP8266_STA_MAC))
+    logging.info("Serving FW {} for this chip MAC AP: {} MAC STA: {}".format(fw_filename, esp8266_ap_mac, esp8266_sta_mac))
     resp = send_from_directory(file_path, fw_filename)
     resp.headers['X-MD5'] = fw_md5
     return resp
