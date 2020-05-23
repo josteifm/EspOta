@@ -13,7 +13,6 @@ UPLOAD_FOLDER = './files/'
 ALLOWED_EXTENSIONS = {'bin'}
 
 app = Flask(__name__)
-app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
 header_X_ESP8266_SKETCH_MD5 = 'X-ESP8266-SKETCH-MD5'
 header_X_ESP8266_STA_MAC = 'X-ESP8266-STA-MAC'
@@ -35,6 +34,12 @@ def environ_or_default(key, default):
 def environ_or_default_bool(key, default):
     return (
         {'default': os.environ.get(key).lower() == "true"} if os.environ.get(key) else {'default': default}
+    )
+
+
+def environ_or_default_int(key, default):
+    return (
+        {'default': int(os.environ.get(key))} if os.environ.get(key) else {'default': default}
     )
 
 
@@ -197,11 +202,16 @@ def main():
                         help='Set log level, default: \'info\'', **environ_or_default('LOG_LEVEL', 'INFO'))
     parser.add_argument('-f', '--log-to-file', action='store', dest='log_to_file',
                         help='Set log level, default: \'info\'', **environ_or_default_bool('LOG_TO_FILE', True))
+    parser.add_argument('-p', '--port', action='store', dest='port',
+                        help='Set log level, default: \'info\'', **environ_or_default_int('PORT', 54321))
     options = parser.parse_args()
 
     log_setup(options.log_level, options.log_to_file)
-    logging.info("Starting OTA server on port: {0}".format(54321))
-    app.run(host='0.0.0.0', port=54321)
+
+    app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+
+    logging.info("Starting OTA server on port: {0}".format(options.port))
+    app.run(host='0.0.0.0', port=options.port)
 
 
 if __name__ == '__main__':
