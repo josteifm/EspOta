@@ -1,25 +1,19 @@
+
 from flask import Flask, request, send_from_directory, jsonify, Response
 from werkzeug.utils import secure_filename
 from datetime import datetime
+import argparse
 import hashlib
 import os
 import glob
 import logging
+import sys
 
 UPLOAD_FOLDER = './files/'
 ALLOWED_EXTENSIONS = {'bin'}
 
 app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
-
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(message)s",
-    handlers=[
-        logging.FileHandler("logs/{:%Y-%m-%d}.log".format(datetime.now())),
-        logging.StreamHandler()
-    ]
-)
 
 header_X_ESP8266_SKETCH_MD5 = 'X-ESP8266-SKETCH-MD5'
 header_X_ESP8266_STA_MAC = 'X-ESP8266-STA-MAC'
@@ -30,6 +24,41 @@ header_X_ESP8266_CHIP_SIZE = 'X-ESP8266-CHIP-SIZE'
 header_X_ESP8266_SDK_VERSION = 'X-ESP8266-SDK-VERSION'
 
 basepath = './files/'
+
+
+def environ_or_default(key, default):
+    return (
+        {'default': os.environ.get(key)} if os.environ.get(key) else {'default': default}
+    )
+
+
+def environ_or_default_bool(key, default):
+    return (
+        {'default': os.environ.get(key).lower() == "true"} if os.environ.get(key) else {'default': default}
+    )
+
+
+def log_setup(log_level, to_file=True):
+    """Setup application logging"""
+
+    numeric_level = logging.getLevelName(log_level.upper())
+    if not isinstance(numeric_level, int):
+        raise TypeError("Invalid log level: {0}".format(log_level))
+
+    logging_config = {
+        'format': '%(asctime)s [%(levelname)s] %(message)s',
+        'level': numeric_level,
+        'handlers': []
+    }
+
+    if to_file:
+        logging_config['handlers'].append(logging.FileHandler("logs/{:%Y-%m-%d}.log".format(datetime.now())))
+        logging_config['handlers'].append(logging.StreamHandler())
+    else:
+        logging_config['handlers'].append(logging.StreamHandler(sys.stdout))
+
+    logging.basicConfig(**logging_config)
+    logging.info("log_level set to: {0}".format(log_level))
 
 
 def check_header(name, value=None):
@@ -162,5 +191,18 @@ def upload_file():
     '''
 
 
-if __name__ == '__main__':
+def main():
+    parser = argparse.ArgumentParser(description='Backend for counter system')
+    parser.add_argument('-l', '--log-level', action='store', dest='log_level',
+                        help='Set log level, default: \'info\'', **environ_or_default('LOG_LEVEL', 'INFO'))
+    parser.add_argument('-f', '--log-to-file', action='store', dest='log_to_file',
+                        help='Set log level, default: \'info\'', **environ_or_default_bool('LOG_TO_FILE', True))
+    options = parser.parse_args()
+
+    log_setup(options.log_level, options.log_to_file)
+    logging.info("Starting OTA server on port: {0}".format(54321))
     app.run(host='0.0.0.0', port=54321)
+
+
+if __name__ == '__main__':
+    main()
