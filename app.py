@@ -1,5 +1,5 @@
 
-from flask import Flask, request, send_from_directory, jsonify, Response
+from flask import Flask, request, send_from_directory, Response
 from werkzeug.utils import secure_filename
 from datetime import datetime
 import argparse
