@@ -148,8 +148,6 @@ def upload_file():
 
             print(os.path.join(path, filename))
             file.save(os.path.join(path, filename))
-            # return redirect(url_for('uploaded_file',
-            #                         filename=filename))
             resp = Response("OK\n", status=200)
             return resp
     return '''
