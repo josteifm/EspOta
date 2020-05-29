@@ -162,7 +162,7 @@ def upload_file():
             print('No file part')
             return Response("Bad Request\n", status=400)
         file = request.files['file']
-        path = request.form['deviceid']
+        path = request.form['device_id']
         print("Path: {}".format(path))
         # if user does not select file, browser also
         # submit an empty part without filename
@@ -192,7 +192,7 @@ def upload_file():
     <title>Upload new File</title>
     <h1>Upload new File</h1>
     <form method="post" enctype="multipart/form-data">
-      <input type="input" name="deviceid"/><br/>
+      <input type="input" name="device_id"/><br/>
       <input type="file" name="file"/><br/>
       <input type="submit" value="Upload"/>
     </form>
