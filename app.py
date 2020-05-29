@@ -200,7 +200,7 @@ def upload_file():
 
 
 def main():
-    parser = argparse.ArgumentParser(description='Backend for counter system')
+    parser = argparse.ArgumentParser(description='Esp-ota server')
     parser.add_argument('-l', '--log-level', action='store', dest='log_level',
                         help='Set log level, default: \'info\'', **environ_or_default('LOG_LEVEL', 'INFO'))
     parser.add_argument('-f', '--log-to-file', action='store', dest='log_to_file',
