@@ -1,4 +1,3 @@
-
 from flask import Flask, request, send_from_directory, Response
 from werkzeug.utils import secure_filename
 from datetime import datetime
@@ -20,6 +19,9 @@ header_X_ESP8266_FREE_SPACE = 'X-ESP8266-FREE-SPACE'
 header_X_ESP8266_SKETCH_SIZE = 'X-ESP8266-SKETCH-SIZE'
 header_X_ESP8266_CHIP_SIZE = 'X-ESP8266-CHIP-SIZE'
 header_X_ESP8266_SDK_VERSION = 'X-ESP8266-SDK-VERSION'
+
+required_headers = [header_X_ESP8266_SKETCH_MD5, header_X_ESP8266_STA_MAC, header_X_ESP8266_AP_MAC, header_X_ESP8266_FREE_SPACE,
+                    header_X_ESP8266_SKETCH_SIZE, header_X_ESP8266_CHIP_SIZE, header_X_ESP8266_SDK_VERSION]
 
 
 def environ_or_default(key, default):
@@ -63,6 +65,12 @@ def log_setup(log_level, to_file=True):
     logging.info("log_level set to: {0}".format(log_level))
 
 
+def check_required_headers(req_headers):
+    for h in req_headers:
+        if not check_header(h):
+            return False
+
+
 def check_header(name, value=None):
     print(name + ' : ' + str(request.headers.get(name)))
     if request.headers.get(name) is None:
@@ -102,9 +110,7 @@ def send_file():
     #     resp = Response("only for ESP8266 updater!\n", status=403)
     #     return resp
 
-    if not check_header(header_X_ESP8266_STA_MAC) or not check_header(header_X_ESP8266_AP_MAC) or not check_header(
-            header_X_ESP8266_FREE_SPACE) or not check_header(header_X_ESP8266_SKETCH_SIZE) or not check_header(
-            header_X_ESP8266_SKETCH_MD5) or not check_header(header_X_ESP8266_CHIP_SIZE) or not check_header(header_X_ESP8266_SDK_VERSION):
+    if not check_required_headers(required_headers):
         resp = Response("only for ESP8266 updater! (header)\n", status=403)
         return resp
 
