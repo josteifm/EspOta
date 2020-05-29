@@ -1,6 +1,7 @@
 from flask import Flask, request, send_from_directory, Response
 from werkzeug.utils import secure_filename
 from datetime import datetime
+from pathlib import Path
 import argparse
 import hashlib
 import os
@@ -118,7 +119,7 @@ def send_file():
     esp8266_sta_mac = request.headers.get(header_X_ESP8266_STA_MAC)
     logging.info("Request from device MAC AP: {} MAC STA: {}".format(esp8266_ap_mac, esp8266_sta_mac))
 
-    file_path = app.config['UPLOAD_FOLDER'] + esp8266_ap_mac.replace(":", "")
+    file_path = app.config['UPLOAD_FOLDER'] / esp8266_ap_mac.replace(":", "")
     if not os.path.exists(file_path):
         resp = Response("No firmware for this chip {}\n".format(esp8266_ap_mac), status=404)
         logging.info("No firmware for this chip MAC AP: {} MAC STA: {}".format(esp8266_ap_mac, esp8266_sta_mac))
@@ -162,13 +163,13 @@ def upload_file():
             print('No file part')
             return Response("Bad Request\n", status=400)
         file = request.files['file']
-        path = request.form['device_id']
-        print("Path: {}".format(path))
+        device = request.form['device_id']
+        print("Device: {}".format(device))
         # if user does not select file, browser also
         # submit an empty part without filename
-        if path == '':
-            print('No path')
-            resp = Response("No path\n", status=200)
+        if device == '':
+            print('No device')
+            resp = Response("No device\n", status=200)
             return resp
 
         if file.filename == '':
@@ -178,13 +179,14 @@ def upload_file():
 
         if file and allowed_file(file.filename):
             filename = secure_filename(file.filename)
-            path = os.path.join(app.config['UPLOAD_FOLDER'], path)
+            path = app.config['UPLOAD_FOLDER'] / device
 
             if not os.path.exists(path):
                 os.makedirs(path)
 
-            print(os.path.join(path, filename))
-            file.save(os.path.join(path, filename))
+            full_file_path = path / filename
+            logging.info("Persisting file with path: {0}".format(full_file_path))
+            file.save(full_file_path)
             resp = Response("OK\n", status=200)
             return resp
     return '''
@@ -208,12 +210,12 @@ def main():
     parser.add_argument('-p', '--port', action='store', dest='port',
                         help='Set log level, default: \'info\'', **environ_or_default_int('PORT', 54321))
     parser.add_argument('-u', '--upload path', action='store', dest='upload_path',
-                        help='Set upload path', **environ_or_default('UPLOAD_PATH', './files/'))
+                        help='Set upload path', **environ_or_default('UPLOAD_PATH', 'files'))
     options = parser.parse_args()
 
     log_setup(options.log_level, options.log_to_file)
 
-    app.config['UPLOAD_FOLDER'] = options.upload_path if options.upload_path.endswith('/') else options.upload_path + '/'
+    app.config['UPLOAD_FOLDER'] = Path(options.upload_path)
 
     logging.info("Starting OTA server on port: {0}".format(options.port))
     app.run(host='0.0.0.0', port=options.port)
