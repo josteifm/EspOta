@@ -110,8 +110,9 @@ def send_file():
     # if not check_header('User-Agent', 'ESP8266-http-Update'):
     #     resp = Response("only for ESP8266 updater!\n", status=403)
     #     return resp
+    debug = request.args.get('debug')
 
-    if not check_required_headers(required_headers):
+    if not debug and not check_required_headers(required_headers):
         resp = Response("only for ESP8266 updater! (header)\n", status=403)
         return resp
 
