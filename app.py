@@ -7,6 +7,7 @@ import hashlib
 import os
 import logging
 import sys
+import ctypes
 
 ALLOWED_EXTENSIONS = {'bin'}
 
@@ -22,6 +23,13 @@ header_X_ESP8266_SDK_VERSION = 'X-ESP8266-SDK-VERSION'
 
 required_headers = [header_X_ESP8266_SKETCH_MD5, header_X_ESP8266_STA_MAC, header_X_ESP8266_AP_MAC, header_X_ESP8266_FREE_SPACE,
                     header_X_ESP8266_SKETCH_SIZE, header_X_ESP8266_CHIP_SIZE, header_X_ESP8266_SDK_VERSION]
+
+
+def _is_admin():
+    try:
+        return ctypes.windll.shell32.IsUserAnAdmin()
+    except:
+        return False
 
 
 def environ_or_default(key, default):
@@ -82,9 +90,60 @@ def check_header(name, value=None):
     return True
 
 
+def _create_symlink(link_name, target):
+    if not target.exists():
+        raise FileNotFoundError("Target must exist")
+    target_is_directory = target.is_dir()
+    logging.info("Creating link: : link_name: {0} - target: {1}".format(link_name, target))
+
+    if not link_name.parent.exists():
+        logging.debug("One or more parent directories missing, creating them: {0}".format(link_name.parent))
+        link_name.parent.mkdir(parents=True)
+
+    if link_name.suffix == '.bin' and target_is_directory:
+        raise ValueError("If link name is a .bin file, target should be a file, not a directory")
+
+    if os.name == 'nt' and not _is_admin():
+        logging.warning("Creating symlinks on windows requires elevated rights. Skipping.")
+    else:
+        link_name.symlink_to(target, target_is_directory=target_is_directory)
+
+
+def _delete_symlink(link_name):
+    if not link_name.is_symlink():
+        raise FileNotFoundError("File is not symlink")
+    logging.info("Deleting link: : link_name: {0}".format(link_name))
+
+    if os.name == 'nt' and not _is_admin():
+        logging.warning("Deleting symlinks on windows requires elevated rights. Skipping.")
+    else:
+        link_name.unlink()
+
+
 @app.route('/')
 def hello_world():
     return 'Hello, World!'
+
+
+@app.route('/api/v1.0/link/<path:link_name>', methods=['GET'])
+def create_link(link_name):
+    target = request.args.get('target')
+    if not target:
+        logging.error("Unable to create symlink: link_name: {0} - target: {1}".format(link_name, target))
+        return Response("Bad Request\n", status=400)
+    logging.debug("Got request to create symlink: link_name: {0} - target: {1}".format(link_name, target))
+    target_path = app.config['UPLOAD_FOLDER'] / target
+    link_path = app.config['UPLOAD_FOLDER'] / link_name
+    _create_symlink(link_path, target_path)
+    return Response("Created\n", status=201)
+
+
+@app.route('/api/v1.0/link/<path:link_name>', methods=['DELETE'])
+def delete_link(link_name):
+    logging.debug("Got request to delete symlink: link_name: {0}".format(link_name))
+    link_path = app.config['UPLOAD_FOLDER'] / link_name
+    _delete_symlink(link_path)
+    return Response("Deleted\n", status=200)
 
 
 @app.route('/headers')
