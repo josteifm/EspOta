@@ -186,17 +186,16 @@ def send_file():
 
     files = list(filter(os.path.isfile, file_path.glob("**/*")))
 
-    print(files)
+    logging.debug("Found {0} files".format(len(files)))
+    logging.debug(files)
     files.sort(key=os.path.getctime)
-    print(files[0])
+    logging.debug("Newest file based on ctime: {0}".format(files[0]))
 
     # get file for requesting chip
     fw_file = files[0]
     fw_md5 = md5(fw_file)
-
-    print(fw_md5)
     fw_filename = os.path.basename(fw_file)
-    print(fw_filename)
+    logging.debug("MD5 for file: {0} - {1}".format(fw_filename, fw_md5))
 
     if request.headers.get(header_X_ESP8266_SKETCH_MD5) == fw_md5:
         resp = Response("Firmware is newest version\n", status=304)
