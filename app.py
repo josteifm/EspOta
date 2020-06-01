@@ -43,7 +43,7 @@ def environ_or_default_int(key, default):
     )
 
 
-def log_setup(log_level, to_file=True):
+def log_setup(log_level, to_stdout=False):
     """Setup application logging"""
 
     numeric_level = logging.getLevelName(log_level.upper())
@@ -56,7 +56,7 @@ def log_setup(log_level, to_file=True):
         'handlers': []
     }
 
-    if to_file:
+    if not to_stdout:
         logging_config['handlers'].append(logging.FileHandler("logs/{:%Y-%m-%d}.log".format(datetime.now())))
         logging_config['handlers'].append(logging.StreamHandler())
     else:
@@ -205,15 +205,15 @@ def main():
     parser = argparse.ArgumentParser(description='Esp-ota server')
     parser.add_argument('-l', '--log-level', action='store', dest='log_level',
                         help='Set log level, default: \'info\'', **environ_or_default('LOG_LEVEL', 'INFO'))
-    parser.add_argument('-f', '--log-to-file', action='store', dest='log_to_file',
-                        help='Set log level, default: \'info\'', **environ_or_default_bool('LOG_TO_FILE', True))
+    parser.add_argument('-s', '--log-to-stdout', action='store_true', dest='log_to_stdout',
+                        help='Set log level, default: \'info\'', **environ_or_default_bool('LOG_TO_STDOUT', False))
     parser.add_argument('-p', '--port', action='store', dest='port',
                         help='Set log level, default: \'info\'', **environ_or_default_int('PORT', 54321))
     parser.add_argument('-u', '--upload path', action='store', dest='upload_path',
                         help='Set upload path', **environ_or_default('UPLOAD_PATH', 'files'))
     options = parser.parse_args()
 
-    log_setup(options.log_level, options.log_to_file)
+    log_setup(options.log_level, options.log_to_stdout)
 
     app.config['UPLOAD_FOLDER'] = Path(options.upload_path)
 
