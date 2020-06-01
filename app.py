@@ -5,7 +5,6 @@ from pathlib import Path
 import argparse
 import hashlib
 import os
-import glob
 import logging
 import sys
 
@@ -126,7 +125,7 @@ def send_file():
         logging.info("No firmware for this chip MAC AP: {} MAC STA: {}".format(esp8266_ap_mac, esp8266_sta_mac))
         return resp
 
-    files = list(filter(os.path.isfile, glob.glob(file_path + "/*")))
+    files = list(filter(os.path.isfile, file_path.glob("**/*")))
 
     print(files)
     files.sort(key=os.path.getctime)
