@@ -212,7 +212,7 @@ def send_file():
 
     logging.debug("Found {0} files".format(len(files)))
     logging.debug(files)
-    files.sort(key=os.path.getctime)
+    files.sort(key=os.path.getctime, reverse=True)
     logging.debug("Newest file based on ctime: {0}".format(files[0]))
 
     # get file for requesting chip
