@@ -121,7 +121,7 @@ def send_file():
     files = list(filter(os.path.isfile, glob.glob(file_path + "/*")))
 
     print(files)
-    files.sort(key=os.path.getctime)
+    files.sort(key=os.path.getctime, reverse=True)
     print(files[0])
 
     # get file for requesting chip
