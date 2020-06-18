@@ -131,6 +131,15 @@ def create_link(link_name):
     if not target:
         logging.error("Unable to create symlink: link_name: {0} - target: {1}".format(link_name, target))
         return Response("Bad Request\n", status=400)
+
+    if link_name.startswith('..'):
+        logging.error("path can not start with '..' device: {0}".format(link_name))
+        return Response("Bad Request\n", status=400)
+
+    if target.startswith('..'):
+        logging.error("target can not start with '..' device: {0}".format(target))
+        return Response("Bad Request\n", status=400)
+
     logging.debug("Got request to create symlink: link_name: {0} - target: {1}".format(link_name, target))
     target_path = app.config['UPLOAD_FOLDER'] / target
     link_path = app.config['UPLOAD_FOLDER'] / link_name
@@ -140,6 +149,10 @@ def create_link(link_name):
 
 @app.route('/api/v1.0/link/<path:link_name>', methods=['DELETE'])
 def delete_link(link_name):
+    if link_name.startswith('..'):
+        logging.error("path can not start with '..' device: {0}".format(link_name))
+        return Response("Bad Request\n", status=400)
+
     logging.debug("Got request to delete symlink: link_name: {0}".format(link_name))
     link_path = app.config['UPLOAD_FOLDER'] / link_name
     _delete_symlink(link_path)
@@ -226,14 +239,18 @@ def upload_file():
         # if user does not select file, browser also
         # submit an empty part without filename
         if device == '':
-            print('No device')
+            logging.error('No device')
             resp = Response("No device\n", status=200)
             return resp
 
         if file.filename == '':
-            print('No selected file')
+            logging.error('No selected file')
             resp = Response("No selected file\n", status=200)
             return resp
+
+        if device.startswith('..'):
+            logging.error("path can not start with '..' device: {0}".format(device))
+            return Response("Bad Request\n", status=400)
 
         if file and allowed_file(file.filename):
             filename = secure_filename(file.filename)
