@@ -6,6 +6,7 @@ import argparse
 import hashlib
 import os
 import logging
+import shutil
 import sys
 import ctypes
 
@@ -104,11 +105,11 @@ def _create_symlink(link_name, target):
         raise ValueError("If link name is a .bin file, target should be a file, not a directory")
 
     if link_name.is_dir():
-        if link_name.glob('**/*'):
+        if list(link_name.glob('**/*')):
             raise ValueError("link name must not exist, or be an empty directory")
         else:
             logging.info("Link name existed, but was an empty dir. Removing it. link_name: {0}".format(link_name))
-            link_name.unlink()
+            shutil.rmtree(link_name)
 
     if os.name == 'nt' and not _is_admin():
         logging.warning("Creating symlinks on windows requires elevated rights. Skipping.")
