@@ -79,9 +79,11 @@ def check_required_headers(req_headers):
         if not check_header(h):
             return False
 
+    return True
+
 
 def check_header(name, value=None):
-    print(name + ' : ' + str(request.headers.get(name)))
+    logging.debug("{0} : {1}".format(name, str(request.headers.get(name))))
     if request.headers.get(name) is None:
         return False
 
@@ -193,6 +195,7 @@ def send_file():
 
     if not debug and not check_required_headers(required_headers):
         resp = Response("only for ESP8266 updater! (header)\n", status=403)
+
         return resp
 
     esp8266_ap_mac = request.headers.get(header_X_ESP8266_AP_MAC)
