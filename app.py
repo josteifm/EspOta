@@ -116,7 +116,7 @@ def _create_symlink(link_name, target):
     if os.name == 'nt' and not _is_admin():
         logging.warning("Creating symlinks on windows requires elevated rights. Skipping.")
     else:
-        link_name.symlink_to(target, target_is_directory=target_is_directory)
+        link_name.symlink_to(target.absolute(), target_is_directory=target_is_directory)
 
 
 def _delete_symlink(link_name):
