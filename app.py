@@ -2,6 +2,7 @@ from flask import Flask, request, send_from_directory, Response
 from werkzeug.utils import secure_filename
 from datetime import datetime
 from pathlib import Path
+from yamlreader import yaml_load
 import argparse
 import hashlib
 import os
@@ -289,6 +290,8 @@ def upload_file():
 
 def main():
     parser = argparse.ArgumentParser(description='Esp-ota server')
+    parser.add_argument('-c', '--config', action='store', dest='config',
+                        help='Config directory', **environ_or_default('CONFIG_DIR', 'config.yaml'))
     parser.add_argument('-l', '--log-level', action='store', dest='log_level',
                         help='Set log level, default: \'info\'', **environ_or_default('LOG_LEVEL', 'INFO'))
     parser.add_argument('-s', '--log-to-stdout', action='store_true', dest='log_to_stdout',
@@ -302,6 +305,8 @@ def main():
     log_setup(options.log_level, options.log_to_stdout)
 
     app.config['UPLOAD_FOLDER'] = Path(options.upload_path)
+
+    app.config['DEVICES'] = yaml_load(options.config)
 
     logging.info("Starting OTA server on port: {0}".format(options.port))
     app.run(host='0.0.0.0', port=options.port)
