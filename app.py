@@ -1,12 +1,14 @@
 from flask import Flask, request, send_from_directory, Response
 from werkzeug.utils import secure_filename
 from datetime import datetime
+from github import Github, GithubException
 from pathlib import Path
 from yamlreader import yaml_load
 import argparse
 import hashlib
 import os
 import logging
+import requests
 import shutil
 import sys
 import ctypes
@@ -23,8 +25,91 @@ header_X_ESP8266_SKETCH_SIZE = 'X-ESP8266-SKETCH-SIZE'
 header_X_ESP8266_CHIP_SIZE = 'X-ESP8266-CHIP-SIZE'
 header_X_ESP8266_SDK_VERSION = 'X-ESP8266-SDK-VERSION'
 
+github = Github()
+LATEST_VERSION = 'latest'
+DEFAULT_FILE_NAME = 'firmware.bin'
+
 required_headers = [header_X_ESP8266_SKETCH_MD5, header_X_ESP8266_STA_MAC, header_X_ESP8266_AP_MAC, header_X_ESP8266_FREE_SPACE,
                     header_X_ESP8266_SKETCH_SIZE, header_X_ESP8266_CHIP_SIZE, header_X_ESP8266_SDK_VERSION]
+
+
+def _has_github_config(mac):
+    if mac in app.config['DEVICES'] and app.config['DEVICES'][mac]:
+        return True
+    else:
+        return False
+
+
+def _get_github_release(repo, version):
+    repo = github.get_repo(repo)
+    if version == LATEST_VERSION:
+        return repo.get_latest_release()
+    else:
+        releases = repo.get_releases()
+        releases_as_list = list(releases)
+        release_list = [r for r in releases_as_list if r.title == version]
+        if len(release_list) == 1:
+            return release_list[0]
+        elif len(release_list) == 0:
+            raise TypeError("No releases found in repo: {0}, with version: {1}, Got: {2}"
+                            .format(repo, version, [r.tag_name for r in releases_as_list]))
+        else:
+            raise TypeError("Multiple releases found in repo: {0}, with version: {1}, {2}".format(repo, version, release_list))
+
+
+def _download_github_asset_if_needed(file_path, asset):
+    if not os.path.exists(file_path):
+        Path(file_path).parent.mkdir(parents=True, exist_ok=True)
+        http_headers = {'Authorization': 'token ' + app.config['GITHUB_TOKEN'],
+                        'Accept': 'application/octet-stream'}
+        session = requests.Session()
+        response = session.get(asset.url, headers=http_headers)
+        save_to = file_path
+        logging.debug("Downloading {0} from github to path: {1}".format(asset.name, file_path))
+        saved_bytes = save_to.write_bytes(response.content)
+        if saved_bytes != asset.size:
+            logging.error("Failed to fetch artifact: {0}, from {1}".format(asset.name, asset.url))
+            if os.path.exists(file_path):
+                with open(file_path, 'r') as reader:
+                    logging.error("File content:")
+                    logging.error("File content:\n{0}".format(reader.read()))
+                os.remove(file_path)
+
+            raise ValueError("Mismatch between bytes saved and size of asset: Expected: {0}, got: {1}".format(saved_bytes, asset.size))
+    return file_path
+
+
+def _get_github_release_file_path(mac):
+    device_config = app.config['DEVICES'][mac]
+    release = _get_github_release(device_config['repo'], device_config['version'])
+    if 'file-name' in device_config and device_config['file-name']:
+        file_name = device_config['file-name']
+    else:
+        file_name = DEFAULT_FILE_NAME
+
+    asset_list = [a for a in release.get_assets() if a.name == file_name]
+    if len(asset_list) == 1:
+        logging.debug("Will attempt to serve {0} from {1}:{2} for chip with MAC: {3} based on config"
+                      .format(file_name, device_config['repo'], release.tag_name, mac))
+        asset = asset_list[0]
+    elif len(asset_list) == 0:
+        raise TypeError("No files found in release: {0}:{1}, with file name: {2}".
+                        format(device_config['repo'], device_config['version'], file_name))
+    else:
+        raise TypeError("Multiple files found in release: {0}:{1}, with file name: {2}, {3}".
+                        format(device_config['repo'], device_config['version'], file_name, asset_list))
+
+    file_path = app.config['UPLOAD_FOLDER'] / 'github' / device_config['repo'] / release.tag_name / file_name
+    return _download_github_asset_if_needed(file_path, asset)
+
+
+def _get_github_releases(repo):
+    try:
+        repo = github.get_repo(repo)
+        return repo.get_releases()
+    except GithubException:
+        logging.exception(f'Failed to get releases for repo with name: {repo}')
+        return False
 
 
 def _is_admin():
@@ -158,6 +243,12 @@ def create_link(link_name):
     return Response("Created\n", status=201)
 
 
+@app.route('/api/v1.0/reload', methods=['GET'])
+def reload_config_from_disk():
+    app.config['DEVICES'] = yaml_load(app.config['CONFIG_LOCATION'])
+    return Response("Reloaded\n", status=200)
+
+
 @app.route('/api/v1.0/link/<path:link_name>', methods=['DELETE'])
 def delete_link(link_name):
     if link_name.startswith('..'):
@@ -203,21 +294,34 @@ def send_file():
     esp8266_sta_mac = request.headers.get(header_X_ESP8266_STA_MAC)
     logging.info("Request from device MAC AP: {} MAC STA: {}".format(esp8266_ap_mac, esp8266_sta_mac))
 
-    file_path = app.config['UPLOAD_FOLDER'] / esp8266_ap_mac.replace(":", "")
-    if not os.path.exists(file_path):
-        resp = Response("No firmware for this chip {}\n".format(esp8266_ap_mac), status=404)
-        logging.info("No firmware for this chip MAC AP: {} MAC STA: {}".format(esp8266_ap_mac, esp8266_sta_mac))
-        return resp
+    if _has_github_config(esp8266_ap_mac):
+        logging.info("Config found for chip with MAC {0}, serving fw from Github".format(esp8266_ap_mac))
+        file_path = _get_github_release_file_path(esp8266_ap_mac)
+        if not os.path.exists(file_path):
+            resp = Response("No firmware for this chip {}\n".format(esp8266_ap_mac), status=404)
+            logging.info("No firmware for this chip MAC AP: {} MAC STA: {}".format(esp8266_ap_mac, esp8266_sta_mac))
+            return resp
 
-    files = list(filter(os.path.isfile, file_path.glob("**/*")))
+        fw_file = file_path
+        file_path = file_path.parent
+    else:
+        file_path = app.config['UPLOAD_FOLDER'] / esp8266_ap_mac.replace(":", "")
 
-    logging.debug("Found {0} files".format(len(files)))
-    logging.debug(files)
-    files.sort(key=os.path.getctime, reverse=True)
-    logging.debug("Newest file based on ctime: {0}".format(files[0]))
+        if not os.path.exists(file_path):
+            resp = Response("No firmware for this chip {}\n".format(esp8266_ap_mac), status=404)
+            logging.info("No firmware for this chip MAC AP: {} MAC STA: {}".format(esp8266_ap_mac, esp8266_sta_mac))
+            return resp
 
-    # get file for requesting chip
-    fw_file = files[0]
+        files = list(filter(os.path.isfile, file_path.glob("**/*")))
+
+        logging.debug("Found {0} files".format(len(files)))
+        logging.debug(files)
+        files.sort(key=os.path.getctime, reverse=True)
+        logging.debug("Newest file based on ctime: {0}".format(files[0]))
+
+        # get file for requesting chip
+        fw_file = files[0]
+
     fw_md5 = md5(fw_file)
     fw_filename = os.path.basename(fw_file)
     logging.debug("MD5 for file: {0} - {1}".format(fw_filename, fw_md5))
@@ -292,6 +396,8 @@ def main():
     parser = argparse.ArgumentParser(description='Esp-ota server')
     parser.add_argument('-c', '--config', action='store', dest='config',
                         help='Config directory', **environ_or_default('CONFIG_DIR', 'config.yaml'))
+    parser.add_argument('-g', '--github-token', action='store', dest='github_token',
+                        help='Github token', **environ_or_default('GITHUB_TOKEN', False))
     parser.add_argument('-l', '--log-level', action='store', dest='log_level',
                         help='Set log level, default: \'info\'', **environ_or_default('LOG_LEVEL', 'INFO'))
     parser.add_argument('-s', '--log-to-stdout', action='store_true', dest='log_to_stdout',
@@ -304,9 +410,14 @@ def main():
 
     log_setup(options.log_level, options.log_to_stdout)
 
-    app.config['UPLOAD_FOLDER'] = Path(options.upload_path)
+    global github
+    if options.github_token:
+        github = Github(options.github_token)
+        app.config['GITHUB_TOKEN'] = options.github_token
 
-    app.config['DEVICES'] = yaml_load(options.config)
+    app.config['UPLOAD_FOLDER'] = Path(options.upload_path)
+    app.config['CONFIG_LOCATION'] = options.config
+    app.config['DEVICES'] = yaml_load(app.config['CONFIG_LOCATION'])
 
     logging.info("Starting OTA server on port: {0}".format(options.port))
     app.run(host='0.0.0.0', port=options.port)

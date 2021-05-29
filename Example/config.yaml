@@ -1,0 +1,4 @@
+2E:F4:32:4A:04:E0:
+  repo: "bendikwa/deploy-test"
+  version: "latest"
+  file-name: "deploy-test.bin"
