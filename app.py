@@ -245,7 +245,7 @@ def create_link(link_name):
 
 @app.route('/api/v1.0/reload', methods=['GET'])
 def reload_config_from_disk():
-    app.config['DEVICES'] = yaml_load(app.config['CONFIG_LOCATION'])
+    app.config['DEVICES'] = yaml_load(app.config['CONFIG_LOCATION'], {})
     return Response("Reloaded\n", status=200)
 
 
@@ -417,7 +417,7 @@ def main():
 
     app.config['UPLOAD_FOLDER'] = Path(options.upload_path)
     app.config['CONFIG_LOCATION'] = options.config
-    app.config['DEVICES'] = yaml_load(app.config['CONFIG_LOCATION'])
+    app.config['DEVICES'] = yaml_load(app.config['CONFIG_LOCATION'], {})
 
     logging.info("Starting OTA server on port: {0}".format(options.port))
     app.run(host='0.0.0.0', port=options.port)
